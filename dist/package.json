@@ -1,0 +1,44 @@
+{
+  "name": "@geunoh/s3-mcp-server",
+  "version": "1.1.7",
+  "type": "module",
+  "description": "MCP Server for accessing S3 bucket",
+  "bin": {
+    "s3-mcp-server": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node src/server.ts",
+    "build": "rm -rf dist && tsc && cp package*.json dist/ && cd dist && npm install --omit=dev && chmod +x cli.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "s3",
+    "aws",
+    "server"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "commander": "^11.0.0",
+    "dotenv": "^16.4.7",
+    "zod": "^3.22.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
