@@ -29,6 +29,7 @@
     "@modelcontextprotocol/sdk": "^1.7.0",
     "commander": "^11.0.0",
     "dotenv": "^16.4.7",
+    "pdfreader": "^3.0.7",
     "zod": "^3.22.4"
   },
   "publishConfig": {
