@@ -1,6 +1,6 @@
 {
   "name": "@geunoh/s3-mcp-server",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "type": "module",
   "description": "MCP Server for accessing S3 bucket",
   "bin": {
