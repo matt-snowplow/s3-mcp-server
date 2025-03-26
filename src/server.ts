@@ -2,6 +2,7 @@ import {
   S3Client,
   ListObjectsV2Command,
   GetObjectCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -75,7 +76,7 @@ export async function extractTextFromPptxBuffer(pptxFile: Buffer) {
   }
 }
 
-function extractTextFromSlide(slideObj: any) {
+function extractTextFromSlide(slideObj: Record<string, any>) {
   let text = "";
 
   try {
@@ -207,6 +208,45 @@ mcpServer.tool("list_buckets", { prefix: z.string() }, async ({ prefix }) => {
       })) || [],
   };
 });
+
+mcpServer.tool(
+  "upload_file",
+  {
+    localFilePath: z.string(),
+    key: z.string(),
+  },
+  async ({ localFilePath, key }) => {
+    try {
+      const fs = await import("node:fs/promises");
+      const fileContent = await fs.readFile(localFilePath);
+
+      const command = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: fileContent,
+        ContentType: "text/plain",
+      });
+
+      await s3Client.send(command);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              message: "File uploaded successfully",
+              key: key,
+              size: fileContent.length,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      throw error;
+    }
+  }
+);
 
 const transport = new StdioServerTransport();
 await mcpServer.connect(transport);
