@@ -35,7 +35,7 @@ function extractTextFromPdfBuffer(pdfBuffer: Buffer) {
   });
 }
 
-async function extractTextFromPptxBuffer(pptxFile: Buffer) {
+export async function extractTextFromPptxBuffer(pptxFile: Buffer) {
   try {
     const zip = new AdmZip(pptxFile);
 
@@ -163,10 +163,7 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
     parsedContent = await extractTextFromPdfBuffer(
       Buffer.from(await response.Body.transformToByteArray())
     );
-  } else if (
-    response.ContentType?.includes("pptx") ||
-    response.ContentType?.includes("ppt")
-  ) {
+  } else if (response.ContentType?.includes("presentation")) {
     parsedContent = await extractTextFromS3Object(
       response.Body as ReadableStream
     );

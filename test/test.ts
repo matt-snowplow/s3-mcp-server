@@ -1,8 +1,6 @@
-// @ts-nocheck
-import { extractTextFromS3Object } from "./convert.ts";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
-
+import { extractTextFromS3Object } from "../src/server.ts";
 dotenv.config();
 
 async function testPptxConversion() {
@@ -22,12 +20,25 @@ async function testPptxConversion() {
 
     const response = await s3Client.send(command);
 
+    // which means pptx or ppt
+    if (response.ContentType?.includes("presentation")) {
+      console.log("pptx or ppt");
+    }
+
     const extractedText = await extractTextFromS3Object(
       response.Body as ReadableStream
     );
 
+    const resultJSON = {
+      contentLength: response.ContentLength,
+      contentType: response.ContentType,
+      lastModified: response.LastModified,
+      metadata: response.Metadata,
+      text: extractedText || "No content",
+    };
+
     console.log("Extracted Text from PPTX:");
-    console.log(extractedText);
+    console.log(resultJSON.text);
 
     return extractedText;
   } catch (error) {
