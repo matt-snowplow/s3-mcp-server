@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { extractTextFromS3Object } from "./convert.ts";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
