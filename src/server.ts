@@ -9,6 +9,7 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import { PdfReader } from "pdfreader";
 import { extractTextFromS3Object } from "./convert.js";
+import type { Readable } from "node:stream";
 
 dotenv.config();
 
@@ -43,7 +44,7 @@ const s3Client = new S3Client({
   },
 });
 
-const BUCKET_NAME = process.env.S3_BUCKET_NAME || "image-uploading-test-bucket";
+const BUCKET_NAME = process.env.S3_BUCKET_NAME || "";
 
 const mcpServer = new McpServer({
   name: "S3 MCP Server",
@@ -73,8 +74,18 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
     response.ContentType?.includes("pptx") ||
     response.ContentType?.includes("ppt")
   ) {
+    const chunks = [];
+    for await (const chunk of response.Body as Readable) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
     parsedContent = await extractTextFromS3Object(
-      response.Body as ReadableStream
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(buffer);
+          controller.close();
+        },
+      })
     );
   } else {
     parsedContent = await response.Body?.transformToString();
