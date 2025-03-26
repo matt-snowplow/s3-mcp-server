@@ -163,7 +163,10 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
     parsedContent = await extractTextFromPdfBuffer(
       Buffer.from(await response.Body.transformToByteArray())
     );
-  } else if (response.ContentType?.includes("presentation")) {
+  } else if (
+    response.ContentType?.includes("presentation") ||
+    response.ContentType?.includes("ms-powerpoint")
+  ) {
     parsedContent = await extractTextFromS3Object(
       response.Body as ReadableStream
     );
