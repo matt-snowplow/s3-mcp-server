@@ -1,4 +1,8 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import { extractTextFromS3Object } from "../src/server.ts";
 dotenv.config();
@@ -47,4 +51,27 @@ async function testPptxConversion() {
   }
 }
 
-testPptxConversion().catch(console.error);
+async function testUploadFile(testFilePath: string) {
+  const s3Client = new S3Client({
+    region: process.env.AWS_REGION || "ap-northeast-2",
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+    },
+  });
+
+  const fs = await import("node:fs/promises");
+  const fileContent = await fs.readFile(testFilePath);
+
+  const command = new PutObjectCommand({
+    Bucket: "coursework-contents",
+    Key: "internet-protocol/test.txt",
+    Body: fileContent,
+    ContentType: "text/plain",
+  });
+
+  await s3Client.send(command);
+}
+
+// testPptxConversion().catch(console.error);
+testUploadFile("test/text.txt").catch(console.error);
