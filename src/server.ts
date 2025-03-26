@@ -3,14 +3,12 @@ import {
   ListObjectsV2Command,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
-import {
-  McpServer,
-  ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import dotenv from "dotenv";
 import { PdfReader } from "pdfreader";
+import { extractTextFromS3Object } from "./convert.js";
 
 dotenv.config();
 
@@ -29,10 +27,8 @@ function extractTextFromPdfBuffer(pdfBuffer: Buffer) {
       if (err) {
         reject(err);
       } else if (!item) {
-        // 파싱 완료, 모든 텍스트 결합하여 반환
         resolve(textItems.join(" "));
       } else if (item.text) {
-        // 텍스트 항목 추가
         textItems.push(item.text);
       }
     });
@@ -64,9 +60,21 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
   const response = await s3Client.send(command);
 
   let parsedContent: unknown;
-  if (response.ContentType?.includes("pdf") && response.Body) {
+
+  if (!response.Body) {
+    throw new Error("No body found");
+  }
+
+  if (response.ContentType?.includes("pdf")) {
     parsedContent = await extractTextFromPdfBuffer(
       Buffer.from(await response.Body.transformToByteArray())
+    );
+  } else if (
+    response.ContentType?.includes("pptx") ||
+    response.ContentType?.includes("ppt")
+  ) {
+    parsedContent = await extractTextFromS3Object(
+      response.Body as ReadableStream
     );
   } else {
     parsedContent = await response.Body?.transformToString();
