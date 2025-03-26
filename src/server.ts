@@ -8,9 +8,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import dotenv from "dotenv";
 import { PdfReader } from "pdfreader";
-import { extractTextFromS3Object } from "./convert.js";
-import type { Readable } from "node:stream";
-
+import AdmZip from "adm-zip";
+import xml2js from "xml2js";
 dotenv.config();
 
 if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
@@ -34,6 +33,100 @@ function extractTextFromPdfBuffer(pdfBuffer: Buffer) {
       }
     });
   });
+}
+
+async function extractTextFromPptxBuffer(pptxFile: Buffer) {
+  try {
+    const zip = new AdmZip(pptxFile);
+
+    const slideEntries = zip.getEntries().filter((entry) => {
+      return entry.entryName.match(/ppt\/slides\/slide[0-9]+\.xml/);
+    });
+
+    slideEntries.sort((a, b) => {
+      const numA = Number.parseInt(
+        a.entryName.match(/slide([0-9]+)\.xml/)?.[1] ?? "0"
+      );
+      const numB = Number.parseInt(
+        b.entryName.match(/slide([0-9]+)\.xml/)?.[1] ?? "0"
+      );
+      return numA - numB;
+    });
+
+    const parser = new xml2js.Parser();
+    let allText = "";
+
+    for (const entry of slideEntries) {
+      const slideXml = zip.readAsText(entry.entryName);
+      const result = await parser.parseStringPromise(slideXml);
+
+      const slideNumber =
+        entry.entryName.match(/slide([0-9]+)\.xml/)?.[1] ?? -1;
+      allText += `\n===== 슬라이드 ${slideNumber} =====\n`;
+
+      const slideText = extractTextFromSlide(result);
+      allText += slideText;
+    }
+
+    return allText;
+  } catch (error) {
+    console.error("PPTX 텍스트 추출 중 오류 발생:", error);
+    throw error;
+  }
+}
+
+function extractTextFromSlide(slideObj: any) {
+  let text = "";
+
+  try {
+    const spTree = slideObj?.["p:sld"]?.["p:cSld"]?.[0]?.["p:spTree"]?.[0];
+
+    if (!spTree) return text;
+
+    const shapes = spTree["p:sp"] || [];
+    for (const shape of shapes) {
+      const txBody = shape["p:txBody"]?.[0];
+      if (!txBody) continue;
+
+      const paragraphs = txBody["a:p"] || [];
+      for (const paragraph of paragraphs) {
+        const runs = paragraph["a:r"] || [];
+        let paragraphText = "";
+
+        for (const run of runs) {
+          const textElement = run["a:t"];
+          if (textElement && textElement.length > 0) {
+            paragraphText += textElement[0];
+          }
+        }
+
+        if (paragraphText) {
+          text += `${paragraphText}\n`;
+        }
+      }
+    }
+
+    return text;
+  } catch (error) {
+    console.error("슬라이드 텍스트 추출 중 오류 발생:", error);
+    return text;
+  }
+}
+
+export async function extractTextFromS3Object(s3Body: ReadableStream) {
+  try {
+    const chunks = [];
+    for await (const chunk of s3Body) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    const text = await extractTextFromPptxBuffer(buffer);
+    return text;
+  } catch (error) {
+    console.error("S3 객체에서 텍스트 추출 중 오류 발생:", error);
+    throw error;
+  }
 }
 
 const s3Client = new S3Client({
@@ -74,18 +167,8 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
     response.ContentType?.includes("pptx") ||
     response.ContentType?.includes("ppt")
   ) {
-    const chunks = [];
-    for await (const chunk of response.Body as Readable) {
-      chunks.push(chunk);
-    }
-    const buffer = Buffer.concat(chunks);
     parsedContent = await extractTextFromS3Object(
-      new ReadableStream({
-        start(controller) {
-          controller.enqueue(buffer);
-          controller.close();
-        },
-      })
+      response.Body as ReadableStream
     );
   } else {
     parsedContent = await response.Body?.transformToString();
