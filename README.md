@@ -55,14 +55,31 @@ Add to your mcp.json:
   "mcpServers": {
     "s3-mcp-server": {
       "command": "npx",
+      "args": ["-y", "@geunoh/s3-mcp-server", "--region", "us-east-1", "--bucket", "my-test-bucket"],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "YOUR_AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY": "YOUR_AWS_SECRET_ACCESS_KEY",
+      }
+    }
+  }
+}
+```
+
+Or like this way:
+
+```json
+{
+  "mcpServers": {
+    "s3-mcp-server": {
+      "command": "npx",
       "args": ["-y", "@geunoh/s3-mcp-server"],
       "env": {
         "AWS_ACCESS_KEY_ID": "YOUR_AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY": "YOUR_AWS_SECRET_ACCESS_KEY",
 
         // optional
-        "AWS_REGION": "ap-northeast-2",
-        "S3_BUCKET_NAME": "my-bucket-name",
+        "AWS_REGION": "us-east-1",
+        "S3_BUCKET_NAME": "my-test-bucket",
       }
     }
   }
