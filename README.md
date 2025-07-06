@@ -29,6 +29,7 @@ Options:
 - `--port, -p`: Server port (default: 3000)
 - `--region, -r`: AWS region (default: ap-northeast-2)
 - `--bucket, -b`: S3 bucket name (default: my-dancing-bucket)
+- `--content-type, -t`: Input file content type for uploads/downloads (default: application/octet-stream)
 
 ### Environment Variables
 
@@ -44,6 +45,7 @@ Optional:
 ```bash
 export AWS_REGION="ap-northeast-2"
 export S3_BUCKET_NAME="my-bucket-name"
+export CONTENT_TYPE="application/octet-stream" # Optional: default MIME type for uploads/downloads
 ```
 
 ### MCP Integration
@@ -55,10 +57,19 @@ Add to your mcp.json:
   "mcpServers": {
     "s3-mcp-server": {
       "command": "npx",
-      "args": ["-y", "@geunoh/s3-mcp-server", "--region", "us-east-1", "--bucket", "my-test-bucket"],
+      "args": [
+        "-y",
+        "@geunoh/s3-mcp-server",
+        "--region",
+        "us-east-1",
+        "--bucket",
+        "my-test-bucket",
+        "--content-type",
+        "text/plain"
+      ],
       "env": {
         "AWS_ACCESS_KEY_ID": "YOUR_AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY": "YOUR_AWS_SECRET_ACCESS_KEY",
+        "AWS_SECRET_ACCESS_KEY": "YOUR_AWS_SECRET_ACCESS_KEY"
       }
     }
   }
@@ -79,7 +90,7 @@ Or like this way:
 
         // optional
         "AWS_REGION": "us-east-1",
-        "S3_BUCKET_NAME": "my-test-bucket",
+        "S3_BUCKET_NAME": "my-test-bucket"
       }
     }
   }
@@ -118,17 +129,14 @@ Minimum required permissions (see s3-policy.json):
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:ListBucket",
-                "s3:GetObject"
-            ],
-            "Resource": "arn:aws:s3:::my-bucket-name"
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::my-bucket-name"
+    }
+  ]
 }
 ```
 
