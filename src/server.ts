@@ -11,6 +11,7 @@ import dotenv from "dotenv";
 import { PdfReader } from "pdfreader";
 import AdmZip from "adm-zip";
 import xml2js from "xml2js";
+import mime from "mime-types";
 dotenv.config();
 
 if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
@@ -209,26 +210,31 @@ mcpServer.tool("list_buckets", { prefix: z.string() }, async ({ prefix }) => {
   };
 });
 
+const isValidMimeType = (type: string) => !!mime.extensions[type];
+
 mcpServer.tool(
   "upload_file",
   {
     localFilePath: z.string(),
     key: z.string(),
+    contentType: z.string().optional(),
   },
-  async ({ localFilePath, key }) => {
+  async ({ localFilePath, key, contentType }) => {
     try {
       const fs = await import("node:fs/promises");
       const fileContent = await fs.readFile(localFilePath);
-
+      let detectedContentType =
+        contentType || mime.lookup(localFilePath) || "application/octet-stream";
+      if (!isValidMimeType(detectedContentType)) {
+        throw new Error(`Invalid Content-Type: ${detectedContentType}`);
+      }
       const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
         Body: fileContent,
-        ContentType: "text/plain",
+        ContentType: detectedContentType,
       });
-
       await s3Client.send(command);
-
       return {
         content: [
           {
@@ -237,6 +243,7 @@ mcpServer.tool(
               message: "File uploaded successfully",
               key: key,
               size: fileContent.length,
+              contentType: detectedContentType,
             }),
           },
         ],
