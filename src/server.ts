@@ -194,7 +194,7 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
   };
 });
 
-mcpServer.tool("list_buckets", { prefix: z.string() }, async ({ prefix }) => {
+mcpServer.tool("list_objects", { prefix: z.string() }, async ({ prefix }) => {
   const command = new ListObjectsV2Command({
     Bucket: BUCKET_NAME,
     Prefix: prefix as string,

@@ -1,4 +1,4 @@
-import { S3Client, ListObjectsV2Command, GetObjectCommand, } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, } from "@aws-sdk/client-s3";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { PdfReader } from "pdfreader";
 import AdmZip from "adm-zip";
 import xml2js from "xml2js";
+import mime from "mime-types";
 dotenv.config();
 if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     console.error("Error: AWS credentials are required. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.");
@@ -27,7 +28,7 @@ function extractTextFromPdfBuffer(pdfBuffer) {
         });
     });
 }
-async function extractTextFromPptxBuffer(pptxFile) {
+export async function extractTextFromPptxBuffer(pptxFile) {
     try {
         const zip = new AdmZip(pptxFile);
         const slideEntries = zip.getEntries().filter((entry) => {
@@ -129,8 +130,8 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
     if (response.ContentType?.includes("pdf")) {
         parsedContent = await extractTextFromPdfBuffer(Buffer.from(await response.Body.transformToByteArray()));
     }
-    else if (response.ContentType?.includes("pptx") ||
-        response.ContentType?.includes("ppt")) {
+    else if (response.ContentType?.includes("presentation") ||
+        response.ContentType?.includes("ms-powerpoint")) {
         parsedContent = await extractTextFromS3Object(response.Body);
     }
     else {
@@ -152,7 +153,7 @@ mcpServer.tool("get_object", { key: z.string() }, async ({ key }) => {
         ],
     };
 });
-mcpServer.tool("list_buckets", { prefix: z.string() }, async ({ prefix }) => {
+mcpServer.tool("list_objects", { prefix: z.string() }, async ({ prefix }) => {
     const command = new ListObjectsV2Command({
         Bucket: BUCKET_NAME,
         Prefix: prefix,
@@ -164,6 +165,45 @@ mcpServer.tool("list_buckets", { prefix: z.string() }, async ({ prefix }) => {
             text: `${item.Key}`,
         })) || [],
     };
+});
+const isValidMimeType = (type) => !!mime.extensions[type];
+mcpServer.tool("upload_file", {
+    localFilePath: z.string(),
+    key: z.string(),
+    contentType: z.string().optional(),
+}, async ({ localFilePath, key, contentType }) => {
+    try {
+        const fs = await import("node:fs/promises");
+        const fileContent = await fs.readFile(localFilePath);
+        let detectedContentType = contentType || mime.lookup(localFilePath) || "application/octet-stream";
+        if (!isValidMimeType(detectedContentType)) {
+            throw new Error(`Invalid Content-Type: ${detectedContentType}`);
+        }
+        const command = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key,
+            Body: fileContent,
+            ContentType: detectedContentType,
+        });
+        await s3Client.send(command);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        message: "File uploaded successfully",
+                        key: key,
+                        size: fileContent.length,
+                        contentType: detectedContentType,
+                    }),
+                },
+            ],
+        };
+    }
+    catch (error) {
+        console.error("Error uploading file:", error);
+        throw error;
+    }
 });
 const transport = new StdioServerTransport();
 await mcpServer.connect(transport);
