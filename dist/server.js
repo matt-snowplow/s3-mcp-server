@@ -167,7 +167,7 @@ mcpServer.tool("list_objects", { prefix: z.string() }, async ({ prefix }) => {
     };
 });
 const isValidMimeType = (type) => !!mime.extensions[type];
-mcpServer.tool("upload_file", {
+mcpServer.tool("upload_object", {
     localFilePath: z.string(),
     key: z.string(),
     contentType: z.string().optional(),
